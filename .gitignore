@@ -1,0 +1,36 @@
+# Logs and databases #
+######################
+*.log
+*.sql
+*.sqlite
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PDFs #
+######################
+*.pdf
+
+# IDEA #
+######################
+.idea/
+
+# Playgrounds #
+draft.py
+playground.py
+
+# temp generated #
+*.lprof
+
+# Python cache
+__pycache__/
+*.pyc
+.eggs/
+*.egg-info/
