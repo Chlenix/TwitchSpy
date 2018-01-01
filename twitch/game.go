@@ -4,7 +4,7 @@ type GameInfo struct {
 	Name        string `json:"name"`
 	Popularity  int    `json:"popularity"`
 	Gameid      int    `json:"_id"`
-	Giantbombid int    `json:"giantbomb_id"`
+	Giantbombid int    `json:"gia	ntbomb_id"`
 	Genres      []string
 	Aliases     []string
 	Brief       string

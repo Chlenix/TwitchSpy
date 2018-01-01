@@ -14,6 +14,8 @@ func main() {
 	var twitchCrawler = twitch.New()
 	twitchCrawler.Authorize()
 
+	twitchCrawler.RevokeToken()
+
 	topGames, err := twitchCrawler.GetTopGames(24, 0)
 	if err != nil {
 		fmt.Println(err.Error())
