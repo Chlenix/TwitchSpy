@@ -3,35 +3,63 @@ package main
 import (
 	"TwitchSpy/api/twitch"
 	"fmt"
-	"TwitchSpy/api/giantbomb"
-	"github.com/levigross/grequests"
-	"os"
+	//"TwitchSpy/api/giantbomb"
+	//"github.com/levigross/grequests"
+	//"os"
+	"TwitchSpy/tserror"
+	"database/sql"
+	_ "github.com/lib/pq"
+	"github.com/jmoiron/sqlx"
 )
+
+const (
+	MaxWarnings = 5
+)
+
+type ErrorTable map[error]int
+
+func (errorTable ErrorTable) handle(e tserror.AppError) {
+	switch e.Level {
+	case tserror.Warning:
+		errorTable[e.ErrorObject]++
+		if errorTable[e.ErrorObject] >= MaxWarnings {
+		}
+		break
+	case tserror.Critical:
+		break
+	}
+}
 
 func main() {
 
-	// 20674 --- 2 genres
-	var twitchCrawler = twitch.New()
-	twitchCrawler.Authorize()
+	// not concurrency safe
+	errorTable := make(ErrorTable)
 
-	twitchCrawler.RevokeToken()
+	twitchCrawler := twitch.New()
+	if err := twitchCrawler.Auth(); err != nil {
+		errorTable.handle(*err.(*tserror.AppError))
+	}
 
-	topGames, err := twitchCrawler.GetTopGames(24, 0)
+	defer twitchCrawler.RevokeToken()
+
+	topGames, err := twitchCrawler.GetTopGames(20)
 	if err != nil {
-		fmt.Println(err.Error())
+		errorTable.handle(*err.(*tserror.AppError))
 	}
 
-	var gbClient = &giantbomb.GBClient{
-		RequestOptions: &grequests.RequestOptions{},
-	}
+	fmt.Println(topGames)
 
-	for i := range topGames {
-		if topGames[i].GameInfo.Giantbombid != 0 {
-			if err := gbClient.GetGameInfo(&topGames[i], nil); err != nil {
-				fmt.Fprintf(os.Stderr, "Error! Message: %s | Level: %d\n", err.Error(), err.Level)
-			} else {
-				fmt.Println(topGames[i].Brief)
-			}
-		}
-	}
+	//var gbClient = &giantbomb.GBClient{
+	//	RequestOptions: &grequests.RequestOptions{},
+	//}
+	//
+	//for i := range topGames {
+	//	if topGames[i].GameInfo.Giantbombid != 0 {
+	//		if err := gbClient.GetGameInfo(&topGames[i], nil); err != nil {
+	//			fmt.Fprintf(os.Stderr, "Error! Message: %s | Level: %d\n", err.Error(), err.Level)
+	//		} else {
+	//			fmt.Println(topGames[i].Brief)
+	//		}
+	//	}
+	//}
 }

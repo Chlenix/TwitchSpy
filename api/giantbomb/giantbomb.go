@@ -1,7 +1,6 @@
 package giantbomb
 
 import (
-	"TwitchSpy/twitch"
 	"fmt"
 	"github.com/levigross/grequests"
 	"bytes"
@@ -11,6 +10,7 @@ import (
 	"log"
 	"TwitchSpy/tserror"
 	"errors"
+	"TwitchSpy/api/twitch"
 )
 
 const (

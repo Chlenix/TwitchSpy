@@ -1,84 +1,66 @@
 package twitch
 
+// https://tmi.twitch.tv/group/user/<TWITCHUSER>/chatters
+// Can take up a long time to answer
+
 import (
 	"fmt"
-	"TwitchSpy/twitch"
 	"github.com/levigross/grequests"
 	"TwitchSpy/tserror"
+	"strconv"
+	"errors"
 )
-
-//	ClientID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp"
-//	AuthHash = "OAuth ec6qnwqbbsjr0k9wh12xfcyr645opo"
 
 const (
-	BaseAPI = "https://api.twitch.tv"
+	baseURL = "https://api.twitch.tv"
 
-	TopGamesEP = "kraken/games/top"
-	OAuthEP    = "kraken/oauth2/token"
-	RevokeEP   = "kraken/oauth2/revoke"
-	RefreshEP  = "kraken/oauth2/refresh"
+	topGamesEP = "kraken/games/top"
+	oAuthEP    = "kraken/oauth2"
 
-	ClientID     = "9f859dj8d5z4ydejdwtl2xjhodopvk"
-	ClientSecret = "sx4szdadyu1px8t85ha9mf7kwrwxf6"
+	clientID     = "9f859dj8d5z4ydejdwtl2xjhodopvk"
+	clientSecret = "sx4szdadyu1px8t85ha9mf7kwrwxf6"
+
+	v5Accept = "application/vnd.twitchtv.v5+json"
 )
 
-type AuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
+type errorResponse struct {
+	Error string
+	Status int
+	Message string
 }
 
-func New() *Client {
-	return &Client{
-		Session: grequests.NewSession(&grequests.RequestOptions{
-			UserAgent: "TwitchSpy/v0.1",
-		}),
-		ID:     ClientID,
-		Secret: ClientSecret,
-	}
+type AuthHeaders struct {
+	ClientID      string
+	Authorization string
+}
+
+type Token struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	expired      bool
 }
 
 type Client struct {
-	Session      *grequests.Session
-	ID           string
-	Secret       string
-	accessToken  string
-	refreshToken string
-	expiresIn    int
+	token   Token
+	headers AuthHeaders
 }
 
-func (client Client) RevokeToken() error {
-	revokeUrl := fmt.Sprintf("%s/%s", BaseAPI, RevokeEP)
-	resp, err := grequests.Post(revokeUrl, &grequests.RequestOptions{
-		Params: map[string]string{
-			"client_id": client.ID,
-			"token":     client.accessToken,
-		},
-	})
+func New() *Client {
+	return &Client{}
+}
 
-	if err != nil {
-		return tserror.New(err, tserror.Warning)
+func (client *Client) Auth() error {
+	oAuthUrl := fmt.Sprintf("%s/%s", baseURL, oAuthEP)
+	params := map[string]string{
+		"client_id":     clientID,
+		"client_secret": clientSecret,
 	}
 
-	resp.Close()
+	// if no access token in config/settings or access token expired
 
-	return nil
-}
-
-func (client Client) RefreshToken() error {
-	refreshUrl := fmt.Sprintf("%s/%s", BaseAPI, RefreshEP)
-	fmt.Println(refreshUrl)
-	return nil
-}
-
-func (client *Client) Authorize() error {
-	authUrl := fmt.Sprintf("%s/%s", BaseAPI, OAuthEP)
-	resp, err := client.Session.Post(authUrl, &grequests.RequestOptions{
-		Params: map[string]string{
-			"client_id":     client.ID,
-			"client_secret": client.Secret,
-			"grant_type":    "client_credentials",
-		},
+	params["grant_type"] = "client_credentials"
+	resp, err := grequests.Post(fmt.Sprintf("%s/token", oAuthUrl), &grequests.RequestOptions{
+		Params: params,
 	})
 
 	if err != nil {
@@ -87,19 +69,83 @@ func (client *Client) Authorize() error {
 
 	defer resp.Close()
 
-	var jsonSturct AuthResponse
-	if err := resp.JSON(&jsonSturct); err != nil {
+	if err := resp.JSON(&client.token); err != nil {
 		return tserror.New(err, tserror.Critical)
 	}
 
-	client.accessToken = jsonSturct.AccessToken
-	client.refreshToken = jsonSturct.RefreshToken
-	client.expiresIn = jsonSturct.ExpiresIn
+	client.headers = AuthHeaders{
+		Authorization: fmt.Sprintf("Bearer %s", client.token.AccessToken),
+		ClientID:      clientID,
+	}
 
 	return nil
 }
 
-func (client Client) GetTopGames(limit, offset int) ([]twitch.Game, error) {
-	//gamesUrl := fmt.Sprintf("%s/%s", BaseAPI, TopGamesEP)
-	return nil, nil
+func (client *Client) RevokeToken() error {
+	revokeUrl := fmt.Sprintf("%s/%s/revoke", baseURL, oAuthEP)
+	resp, err := grequests.Post(revokeUrl, &grequests.RequestOptions{
+		Params: map[string]string{
+			"client_id": client.headers.ClientID,
+			"token":     client.token.AccessToken,
+		},
+	})
+
+	if err != nil {
+		return tserror.New(err, tserror.Warning)
+	}
+
+	defer resp.Close()
+
+	client.token.expired = true
+
+	return nil
+}
+
+func (client Client) GetTopGames(limit int) ([]Game, error) {
+	// Top Games URL
+	gamesUrl := fmt.Sprintf("%s/%s", baseURL, topGamesEP)
+
+	// Configure Request Options
+	ro := grequests.RequestOptions{
+		Headers: map[string]string{
+			"Accept":    v5Accept,
+			"Client-ID": client.headers.ClientID,
+		},
+		Params: map[string]string {
+			"limit": strconv.Itoa(limit),
+		},
+	}
+
+	resp, err := grequests.Get(gamesUrl, &ro)
+
+	if err != nil {
+		return nil, tserror.New(err, tserror.Critical)
+	}
+
+	defer resp.Close()
+
+	if !resp.Ok {
+		var e errorResponse
+		if err := resp.JSON(&e); err != nil {
+			return nil, tserror.New(err, tserror.Critical)
+		}
+
+		errorMsg := fmt.Sprintf("%v: %v. %v", e.Status, e.Error, e.Message)
+		return nil, tserror.New(errors.New(errorMsg), tserror.Critical)
+	}
+
+	for k, v := range resp.Header {
+		fmt.Printf("\"%v\": \"%v\"\n", k, v[0])
+	}
+
+	var games TopGames
+	if err := resp.JSON(&games); err != nil {
+		return nil, tserror.New(err, tserror.Critical)
+	}
+
+	return games.Top, nil
+}
+
+func isTokenExpired(token string) bool {
+	return false
 }

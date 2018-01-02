@@ -12,14 +12,14 @@ const (
 
 func New(err error, level int) *AppError {
 	return &AppError{
-		e:     err,
-		Level: level,
+		ErrorObject: err,
+		Level:       level,
 	}
 }
 
 type AppError struct {
-	e     error
-	Level int
+	ErrorObject error
+	Level       int
 }
 
 func (e AppError) Error() string {
