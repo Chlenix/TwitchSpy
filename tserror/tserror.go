@@ -5,9 +5,10 @@ package tserror
 // promote to suspension and suspend a module
 
 const (
-	Critical = 2 // Terminate App
-	Suspend  = 1 // Stop Module
-	Warning  = 0 // Proceed
+	Critical = 2  // Terminate App
+	Suspend  = 1  // Stop Module
+	Warning  = 0  // Proceed
+	Ignore   = -1 // Ignore and proceed
 )
 
 func New(err error, level int) *AppError {
@@ -23,5 +24,5 @@ type AppError struct {
 }
 
 func (e AppError) Error() string {
-	return e.Error()
+	return e.ErrorObject.Error()
 }

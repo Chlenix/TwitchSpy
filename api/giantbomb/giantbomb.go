@@ -19,7 +19,6 @@ const (
 )
 
 type GBClient struct {
-	RequestOptions *grequests.RequestOptions
 	Suspended bool
 }
 
@@ -62,19 +61,26 @@ func parseAliases(in string) []string {
 }
 
 func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.AppError {
+
+	if c.Suspended {
+		return tserror.New(errors.New("GBClient suspended"), tserror.Ignore)
+	}
+
 	gameInfoUrl := fmt.Sprintf("%s/game/%d", BaseAPI, game.Giantbombid)
 
 	if filters == nil {
 		filters = []string{"aliases", "deck", "genres"}
 	}
 
-	c.RequestOptions.Params = map[string]string{
+	params := map[string]string{
 		"format":     "json",
 		"api_key":    APIKey,
 		"field_list": formatFilters(filters),
 	}
 
-	resp, err := grequests.Get(gameInfoUrl, c.RequestOptions)
+	ro := grequests.RequestOptions{Params: params}
+
+	resp, err := grequests.Get(gameInfoUrl, &ro)
 	if err != nil {
 		return tserror.New(err, tserror.Warning)
 	}
