@@ -66,7 +66,7 @@ func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.App
 		return tserror.New(errors.New("GBClient suspended"), tserror.Ignore)
 	}
 
-	gameInfoUrl := fmt.Sprintf("%s/game/%d", BaseAPI, game.Giantbombid)
+	gameInfoUrl := fmt.Sprintf("%s/game/%d", BaseAPI, game.GiantBombID)
 
 	if filters == nil {
 		filters = []string{"aliases", "deck", "genres"}
@@ -89,7 +89,7 @@ func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.App
 
 	if !resp.Ok {
 		errmsg := fmt.Sprintf("Giantbomb #%d status code: %d",
-			game.Giantbombid, resp.StatusCode)
+			game.GiantBombID, resp.StatusCode)
 		return tserror.New(errors.New(errmsg), tserror.Warning)
 	}
 
@@ -114,7 +114,9 @@ func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.App
 	}
 
 	game.Brief = gbResponse.Deck
-	game.Aliases = parseAliases(gbResponse.Aliases)
+
+	game.Aliases = strings.Split(gbResponse.Aliases, "\n")
+	//game.Aliases = parseAliases(gbResponse.Aliases)
 	for _, value := range gbResponse.Genres {
 		game.Genres = append(game.Genres, value.Name)
 	}

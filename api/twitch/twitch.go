@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"errors"
 	"TwitchSpy/db"
+	"TwitchSpy/config"
+	"github.com/kelseyhightower/envconfig"
 )
 
 const (
@@ -18,13 +20,17 @@ const (
 	topGamesEP = "kraken/games/top"
 	oAuthEP    = "kraken/oauth2"
 
-	v5Accept = "application/vnd.twitchtv.v5+json"
+	streamsEP = "helix/streams"
+	v5Accept  = "application/vnd.twitchtv.v5+json"
 )
 
 type errorResponse struct {
 	Error   string
 	Status  int
 	Message string
+}
+
+type StreamQueryOptions struct {
 }
 
 type authHeaders struct {
@@ -42,12 +48,18 @@ type ClientToken struct {
 type Client struct {
 	Token   ClientToken
 	Headers authHeaders
+	Config  *config.Config
 }
 
 // Returns a new client object with state information about
 // the client token and pre-set headers
 func New() *Client {
 	var c Client
+	c.Config = &config.Config{}
+	// Populate the environment variables
+	if err := envconfig.Process("ts", c.Config); err != nil {
+		panic(err)
+	}
 
 	var meta = db.GetClient()
 
@@ -70,13 +82,12 @@ func New() *Client {
 }
 
 func (client *Client) Auth() error {
-
 	// Preparing the oAuth endpoint url and the required GET parameters
 	oAuthUrl := fmt.Sprintf("%s/%s", baseURL, oAuthEP)
 	params := map[string]string{
 		"client_id":     client.Headers.ClientID,
 		"client_secret": client.Headers.ClientSecret,
-		"grant_type": "client_credentials",
+		"grant_type":    "client_credentials",
 	}
 
 	ro := grequests.RequestOptions{Params: params}
@@ -117,6 +128,54 @@ func (client *Client) RevokeToken() error {
 	db.UpdateClientToken(db.ClientToken(client.Token))
 
 	return nil
+}
+
+// Gets information about active streams. Streams are returned sorted by number of current viewers, in descending order.
+// Across multiple pages of results, there may be duplicate or missing streams, as viewers join and leave streams.
+// The response has a JSON payload with a data field containing an array of stream information elements
+// and a pagination field containing information required to query for more streams.
+func (client Client) GetStreams(gameID int) ([]Stream, error) {
+	streamsUrl := fmt.Sprintf("%s/%s", baseURL, streamsEP)
+
+	var ro grequests.RequestOptions
+	ro.Headers = map[string]string{
+		"Client-ID":     client.Headers.ClientID,
+		"Authorization": client.Headers.Authorization,
+	}
+
+	ro.Params = map[string]string{
+		// Maximum number of objects to return. Maximum: 100. Default: 20.
+		"first": strconv.Itoa(client.Config.Streams),
+
+		// 	Stream language. You can specify up to 100 languages.
+		"language": "en",
+
+		// Returns streams broadcasting a specified game ID. You can specify up to 100 IDs.
+		"game_id": strconv.Itoa(gameID),
+
+		// Stream type: "all", "live", "vodcast". Default: "all".
+		"type": "live",
+	}
+
+	resp, err := grequests.Get(streamsUrl, &ro)
+	if err != nil {
+		panic(err)
+	}
+
+	defer resp.Close()
+
+	if !resp.Ok {
+		panic(err)
+	}
+
+	var topStreams Streams
+	if err := resp.JSON(&topStreams); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(topStreams.Top[0].StartedAt.String())
+
+	return topStreams.Top, nil
 }
 
 func (client Client) GetTopGames(limit int) ([]Game, error) {

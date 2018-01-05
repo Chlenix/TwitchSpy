@@ -5,7 +5,6 @@ import (
 	"TwitchSpy/db"
 	"TwitchSpy/api/twitch"
 	"fmt"
-	"database/sql"
 )
 
 const (
@@ -28,7 +27,6 @@ func (errorTable ErrorTable) handle(e tserror.AppError) {
 }
 
 func main() {
-
 	// not concurrency safe
 	errorTable := make(ErrorTable)
 
@@ -36,37 +34,18 @@ func main() {
 	db.Connect("postgres", true)
 	defer db.Close()
 
-	db.InsertGame(&db.TwitchGame{
-		Name: "League of Lols",
-		Gameid: 251225,
-		Giantbombid: sql.NullInt64{2515, true},
-		Brief: sql.NullString{},
-		Genres: []sql.NullString{},
-		Aliases: []sql.NullString{},
-	})
+	tClient := twitch.New()
+	defer tClient.RevokeToken()
 
-	twitchCrawler := twitch.New()
-	defer twitchCrawler.RevokeToken()
-
-	topGames, err := twitchCrawler.GetTopGames(20)
+	topGames, err := tClient.GetTopGames(tClient.Config.Games)
 	if err != nil {
 		errorTable.handle(*err.(*tserror.AppError))
 	}
 
 	fmt.Println(topGames)
 
-	// Remove if false
-	//if 1 == 0 {
-	//	gbClient := giantbomb.GBClient{}
-	//
-	//	for i := range topGames {
-	//		if topGames[i].GameInfo.Giantbombid != 0 {
-	//			if err := gbClient.GetGameInfo(&topGames[i], nil); err != nil {
-	//				fmt.Fprintf(os.Stderr, "Error! Message: %s | Level: %d\n", err.Error(), err.Level)
-	//			} else {
-	//				fmt.Println(topGames[i].Brief)
-	//			}
-	//		}
-	//	}
-	//}
+	for _, game := range topGames {
+		topStreams, _ := tClient.GetStreams(game.GameID)
+		fmt.Println(topStreams)
+	}
 }

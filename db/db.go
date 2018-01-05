@@ -27,10 +27,6 @@ type TwitchGame struct {
 	Brief       sql.NullString   `db:"brief"`
 }
 
-type Converter interface {
-	Convert() *TwitchGame
-}
-
 type ClientToken struct {
 	AccessToken  string
 	RefreshToken string
@@ -66,9 +62,11 @@ func Close() {
 func GetClient() *ClientState {
 	var meta ClientState
 	query := "SELECT client_id, client_secret, access_token, refresh_token, expired FROM clients WHERE rid=$1"
+
 	if err := conn.Get(&meta, query, 1); err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
+
 	return &meta
 }
 
@@ -121,6 +119,8 @@ func execSchema() {
 	ALTER TABLE public.clients
 		OWNER TO gera;`
 
-	r, e := conn.MustExec(schema).RowsAffected()
-	log.Printf("R: %v\nE: %v\n", r, e)
+	_, err := conn.MustExec(schema).RowsAffected()
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+	}
 }
