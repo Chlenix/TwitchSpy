@@ -116,7 +116,6 @@ func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.App
 	game.Brief = gbResponse.Deck
 
 	game.Aliases = strings.Split(gbResponse.Aliases, "\n")
-	//game.Aliases = parseAliases(gbResponse.Aliases)
 	for _, value := range gbResponse.Genres {
 		game.Genres = append(game.Genres, value.Name)
 	}

@@ -178,8 +178,8 @@ func (client Client) GetStreams(gameID int) ([]Stream, error) {
 	return topStreams.Top, nil
 }
 
-func (client Client) GetTopGames(limit int) ([]Game, error) {
-	// Top Games URL
+func (client Client) GetTopGames() ([]Game, error) {
+	// Top GamesToFetch URL
 	gamesUrl := fmt.Sprintf("%s/%s", baseURL, topGamesEP)
 
 	// Configure Request Options
@@ -189,7 +189,7 @@ func (client Client) GetTopGames(limit int) ([]Game, error) {
 			"Client-ID": client.Headers.ClientID,
 		},
 		Params: map[string]string{
-			"limit": strconv.Itoa(limit),
+			"limit": strconv.Itoa(client.Config.GamesToFetch),
 		},
 	}
 

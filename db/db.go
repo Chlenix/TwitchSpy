@@ -3,25 +3,23 @@ package db
 import (
 	_ "github.com/lib/pq"
 	"github.com/jmoiron/sqlx"
-	"fmt"
 	"log"
 	"database/sql"
+	"github.com/kelseyhightower/envconfig"
+	"TwitchSpy/config"
 )
 
 var conn *sqlx.DB
 
 const (
-	host     = "localhost"
-	port     = 5432
-	user     = "gera"
-	password = "DVA3HFDL=y#tA#:m)WcKuKnU"
-	dbname   = "twitchspy"
+	dbEnvPrefix = "db"
+	driverName  = "postgres"
 )
 
 type TwitchGame struct {
 	Name        string           `db:"name"`
-	Gameid      int              `db:"game_id"`
-	Giantbombid sql.NullInt64    `db:"giantbomb_id"`
+	GameID      int              `db:"game_id"`
+	GiantBombID sql.NullInt64    `db:"giantbomb_id"`
 	Genres      []sql.NullString `db:"genres"`
 	Aliases     []sql.NullString `db:"aliases"`
 	Brief       sql.NullString   `db:"brief"`
@@ -41,10 +39,13 @@ type ClientState struct {
 	Expired      bool           `db:"expired"`
 }
 
-func Connect(dialect string, schema bool) {
-	psql := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		host, port, user, password, dbname, "disable")
-	db, err := sqlx.Connect(dialect, psql)
+func Connect(schema bool) {
+	var dbConfig config.DBConfig
+	if err := envconfig.Process(dbEnvPrefix, &dbConfig); err != nil {
+		panic(err)
+	}
+
+	db, err := sqlx.Connect(driverName, dbConfig.ToString())
 	if err != nil {
 		panic(err)
 	}
@@ -87,37 +88,45 @@ func UpdateClientToken(token ClientToken) error {
 	return err
 }
 
-func InsertGame(game *TwitchGame) {
-	_, err := conn.NamedExec(
+func InsertGame(game *TwitchGame) int64 {
+	res, err := conn.NamedExec(
 		`
 		INSERT INTO games
 		(name, game_id, giantbomb_id)
 		VALUES
-		(:name, :game_id, :giantbomb_id)
+		(:name, :game_id, :giantbomb_id) ON CONFLICT DO NOTHING
 		`, game)
 
 	if err != nil {
 		panic(err)
 	}
+
+	rowsAffected, _ := res.RowsAffected()
+	return rowsAffected
 }
 
 func execSchema() {
-	schema := `CREATE TABLE IF NOT EXISTS public.clients (
-    client_id TEXT COLLATE pg_catalog."default" NOT NULL,
-    client_secret TEXT COLLATE pg_catalog."default" NOT NULL,
-    access_token TEXT COLLATE pg_catalog."default",
-    refresh_token TEXT COLLATE pg_catalog."default",
-    expired BOOLEAN NOT NULL DEFAULT FALSE,
-    rid INTEGER NOT NULL DEFAULT nextval('client_rid_seq'::REGCLASS),
-    CONSTRAINT client_pkey PRIMARY KEY (rid)
-	)
-	WITH (
-		OIDS = FALSE
-	)
-	TABLESPACE pg_default;
+	schema :=
+		// CREATE TABLE BEGIN
+		`
+		CREATE TABLE IF NOT EXISTS public.clients (
+		client_id TEXT COLLATE pg_catalog."default" NOT NULL,
+		client_secret TEXT COLLATE pg_catalog."default" NOT NULL,
+		access_token TEXT COLLATE pg_catalog."default",
+		refresh_token TEXT COLLATE pg_catalog."default",
+		expired BOOLEAN NOT NULL DEFAULT FALSE,
+		rid INTEGER NOT NULL DEFAULT nextval('client_rid_seq'::REGCLASS),
+		CONSTRAINT client_pkey PRIMARY KEY (rid)
+		)
+		WITH (
+			OIDS = FALSE
+		)
+		TABLESPACE pg_default;
 
-	ALTER TABLE public.clients
-		OWNER TO gera;`
+		ALTER TABLE public.clients
+			OWNER TO gera;
+		`
+		// CREATE TABLE END
 
 	_, err := conn.MustExec(schema).RowsAffected()
 	if err != nil {
