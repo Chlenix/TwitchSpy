@@ -88,6 +88,12 @@ func UpdateClientToken(token ClientToken) error {
 	return err
 }
 
+func GameExists(gameID int) bool {
+	var game int
+	conn.Get(&game, `SELECT game_id FROM games WHERE game_id = $1`, gameID)
+	return game != 0
+}
+
 func InsertGame(game *TwitchGame) int64 {
 	res, err := conn.NamedExec(
 		`
