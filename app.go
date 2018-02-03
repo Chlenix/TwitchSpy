@@ -6,6 +6,7 @@ import (
 	"TwitchSpy/api/twitch"
 	"TwitchSpy/util"
 	"github.com/labstack/gommon/log"
+	"time"
 )
 
 func main() {
@@ -25,26 +26,32 @@ func main() {
 		errorTable.Handle(*err.(*tserror.AppError))
 	}
 
-	for _, game := range topGames {
+	theTime := time.Now()
 
-		if db.GameExists(game.GameID) {
-			log.Printf("Game %s already exists. Skipping", game.Name)
-			continue
-		}
+	for i, game := range topGames {
 
-		// implement cache slice, if present then already set
-		rowsAffected := db.InsertGame(&db.TwitchGame{
-			Name:        game.Name,
-			GameID:      game.GameID,
-			GiantBombID: util.ToNullInt64(game.GiantBombID),
-		})
+		if !db.GameExists(game.GameID) {
 
-		if tClient.Config.Debug {
-			if rowsAffected == 0 {
-				log.Printf("Game %s already exists. Skipping", game.Name)
-			} else {
-				log.Printf("New game %s added", game.Name)
+			g := &db.TwitchGame{
+				Name:        game.Name,
+				GameID:      game.GameID,
+				GiantBombID: util.ToNullInt64(game.GiantBombID),
 			}
+
+			rowsAffected := db.InsertGame(g)
+
+			if tClient.Config.Debug {
+				if rowsAffected == 0 {
+					log.Printf("Game %s already exists. Skipping", game.Name)
+				} else {
+					log.Printf("New game %s added", game.Name)
+				}
+			}
+
 		}
+
+		// record views
+		db.RecordGameStats(game.GameID, i + 1, game.Viewers, theTime)
+		continue
 	}
 }

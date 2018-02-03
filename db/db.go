@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"github.com/kelseyhightower/envconfig"
 	"TwitchSpy/config"
+	"time"
 )
 
 var conn *sqlx.DB
@@ -111,9 +112,21 @@ func InsertGame(game *TwitchGame) int64 {
 	return rowsAffected
 }
 
+func RecordGameStats(gameID, place, views int, theTime time.Time) int64 {
+	res, err := conn.Exec(`INSERT INTO game_stats VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+		gameID, theTime, views, place)
+
+	if err != nil {
+		panic(err)
+	}
+
+	rowsAffected, _ := res.RowsAffected()
+	return rowsAffected
+}
+
 func execSchema() {
 	schema :=
-		// CREATE TABLE BEGIN
+	// CREATE TABLE BEGIN
 		`
 		CREATE TABLE IF NOT EXISTS public.clients (
 		client_id TEXT COLLATE pg_catalog."default" NOT NULL,
@@ -132,7 +145,7 @@ func execSchema() {
 		ALTER TABLE public.clients
 			OWNER TO gera;
 		`
-		// CREATE TABLE END
+	// CREATE TABLE END
 
 	_, err := conn.MustExec(schema).RowsAffected()
 	if err != nil {
