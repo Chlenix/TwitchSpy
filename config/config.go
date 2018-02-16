@@ -2,7 +2,11 @@ package config
 
 import "fmt"
 
-type Config struct {
+type AppConfig struct {
+
+}
+
+type ClientConfig struct {
 	Debug            bool `envconfig:"DEBUG"`
 	Streams          int  `envconfig:"STREAMS_PER_GAME"`
 	GamesToFetch     int  `envconfig:"GAMES_TO_FETCH"`

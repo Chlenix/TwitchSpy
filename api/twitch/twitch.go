@@ -48,14 +48,14 @@ type ClientToken struct {
 type Client struct {
 	Token   ClientToken
 	Headers authHeaders
-	Config  *config.Config
+	Config  *config.ClientConfig
 }
 
 // Returns a new client object with state information about
 // the client token and pre-set headers
 func New() *Client {
 	var c Client
-	c.Config = &config.Config{}
+	c.Config = &config.ClientConfig{}
 	// Populate the environment variables
 	if err := envconfig.Process("ts", c.Config); err != nil {
 		panic(err)
