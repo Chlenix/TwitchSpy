@@ -8,6 +8,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"TwitchSpy/config"
 	"time"
+	"TwitchSpy/util"
 )
 
 var conn *sqlx.DB
@@ -27,9 +28,9 @@ type TwitchGame struct {
 }
 
 type ClientToken struct {
-	AccessToken  string
-	RefreshToken string
-	Expired      bool
+	AccessToken  string `db:"access_token"`
+	RefreshToken string `db:"refresh_token"`
+	Expired      bool   `db:"expired"`
 }
 
 type ClientState struct {
@@ -73,18 +74,12 @@ func GetClient() *ClientState {
 }
 
 func UpdateClientToken(token ClientToken) error {
-	fields := map[string]interface{}{
-		"access":  token.AccessToken,
-		"refresh": token.RefreshToken,
-		"expired": token.Expired,
-	}
-
-	// Careful!!! will update all fields in clients because missing WHERE clause
+	// Careful! Will update all fields in clients because missing WHERE clause
 	_, err := conn.NamedExec(
 		`
 		UPDATE clients
-		SET (access_token, refresh_token, expired) = (:access, :refresh, :expired)
-		`, fields)
+		SET (access_token, refresh_token, expired) = (:access_token, :refresh_token, :expired)
+		`, token)
 
 	return err
 }
@@ -95,14 +90,14 @@ func GameExists(gameID int) bool {
 	return game != 0
 }
 
-func InsertGame(game *TwitchGame) int64 {
-	res, err := conn.NamedExec(
+func InsertGame(gameName string, gameID int, giantbombID int) int64 {
+	res, err := conn.Exec(
 		`
 		INSERT INTO games
 		(name, game_id, giantbomb_id)
 		VALUES
-		(:name, :game_id, :giantbomb_id) ON CONFLICT DO NOTHING
-		`, game)
+		($1, $2, $3) ON CONFLICT DO NOTHING
+		`, gameName, gameID, util.ToNullInt64(giantbombID))
 
 	if err != nil {
 		panic(err)
@@ -112,7 +107,7 @@ func InsertGame(game *TwitchGame) int64 {
 	return rowsAffected
 }
 
-func RecordGameStats(gameID, place, views int, theTime time.Time) int64 {
+func RecordGameStats(gameID int, place int, views int, theTime time.Time) int64 {
 	res, err := conn.Exec(`INSERT INTO game_stats VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
 		gameID, theTime, views, place)
 

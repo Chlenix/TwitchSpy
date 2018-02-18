@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	APIKey  = "6d7160493970c1b963963c7791af32352ac31d91"
-	BaseAPI = "http://www.giantbomb.com/api"
+	APIKey     = "6d7160493970c1b963963c7791af32352ac31d91"
+	BaseAPIUrl = "http://www.giantbomb.com/api"
 )
 
 type GBClient struct {
@@ -37,36 +37,13 @@ func formatFilters(filters []string) string {
 	return buffer.String()
 }
 
-func parseAliases(in string) []string {
-	r := csv.NewReader(strings.NewReader(in))
-	r.Comma = '\n'
-
-	var aliases []string
-
-	for {
-		alias, err := r.Read()
-
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		aliases = append(aliases, alias[0])
-	}
-
-	return aliases
-}
-
 func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.AppError {
 
 	if c.Suspended {
 		return tserror.New(errors.New("GBClient suspended"), tserror.Ignore)
 	}
 
-	gameInfoUrl := fmt.Sprintf("%s/game/%d", BaseAPI, game.GiantBombID)
+	gameInfoUrl := fmt.Sprintf("%s/game/%d", BaseAPIUrl, game.GiantBombID)
 
 	if filters == nil {
 		filters = []string{"aliases", "deck", "genres"}

@@ -4,7 +4,6 @@ import (
 	"TwitchSpy/db"
 	"TwitchSpy/api/twitch"
 	"time"
-	"TwitchSpy/util"
 	"github.com/labstack/gommon/log"
 	"fmt"
 )
@@ -58,13 +57,7 @@ func PulseTopGames() {
 
 		if !db.GameExists(game.GameID) {
 
-			g := &db.TwitchGame{
-				Name:        game.Name,
-				GameID:      game.GameID,
-				GiantBombID: util.ToNullInt64(game.GiantBombID),
-			}
-
-			rowsAffected := db.InsertGame(g)
+			rowsAffected := db.InsertGame(game.Name, game.GameID, game.GiantBombID)
 
 			if tClient.Config.Debug {
 				if rowsAffected == 0 {

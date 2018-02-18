@@ -1,5 +1,13 @@
 package service
 
 type Listener struct {
-	Queue chan int
+	UserTasks chan Task
+}
+
+func (l *Listener) Start() {
+
+}
+
+func (l *Listener) Stop() {
+
 }

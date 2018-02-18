@@ -1,42 +1,38 @@
 package service
 
 import (
-	"time"
 	"fmt"
-	"math/rand"
 	"sync"
+	"github.com/labstack/gommon/log"
 )
 
-const viewerCount = 100
-
-var wg sync.WaitGroup
-
 type Dispatcher struct {
-	JobQueue chan int
+	wg     *sync.WaitGroup
+	logger *log.Logger
+
+	TaskQueue  chan Task
+	WorkerPool chan chan Worker
 }
 
-func cclose(channels *[viewerCount]chan int) {
-	for _, c := range channels {
-		close(c)
+func NewDispatcher() *Dispatcher {
+	taskQueue := make(chan Task)
+	workerPool := make(chan chan Worker)
+	return &Dispatcher{
+		wg:         &sync.WaitGroup{},
+		TaskQueue:  taskQueue,
+		WorkerPool: workerPool,
 	}
 }
 
-func Dispatch(out *[viewerCount]chan int) {
-	defer wg.Done()
-	defer cclose(out)
+func (l *Dispatcher) Start() {
+	defer l.wg.Done()
+	fmt.Println("Dispatcher started.")
+}
 
-	videoChunks := make([]int, 100)
-
-	for i := range videoChunks {
-		videoChunks[i] = rand.Intn(50000) // we pretend it's a url
-
-		// send the same url to all goroutines
-		for j := range out {
-			out[j] <- videoChunks[i]
-		}
-
-		time.Sleep(40 * time.Millisecond)
-	}
-
+func (l *Dispatcher) Stop() {
 	fmt.Println("Dispatcher exited.")
+}
+
+func (l *Dispatcher) dispatch() {
+
 }
