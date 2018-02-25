@@ -5,7 +5,6 @@ import (
 	"TwitchSpy/api/twitch"
 	"time"
 	"github.com/labstack/gommon/log"
-	"fmt"
 )
 
 type Worker struct {
@@ -15,25 +14,6 @@ type Worker struct {
 	quit       chan bool
 	logger     *log.Logger
 	started    bool
-}
-
-func ViewStream(id int, in <-chan int) {
-	defer wg.Done()
-	var totalChunks = 0
-
-	fmt.Printf("Viewer [%v]: initialized\n", id)
-
-	for {
-		_, more := <-in
-
-		if !more {
-			break
-		}
-
-		totalChunks++
-	}
-
-	fmt.Printf("Viewer [%v]: Downloaded a total of %d video chunks. EXITED\n", id, totalChunks)
 }
 
 func PulseTopGames() {
