@@ -15,7 +15,7 @@ import (
 
 const (
 	APIKey     = "6d7160493970c1b963963c7791af32352ac31d91"
-	BaseAPIUrl = "http://www.giantbomb.com/api"
+	BaseAPIUrl = "http://server.giantbomb.com/api"
 )
 
 type GBClient struct {
