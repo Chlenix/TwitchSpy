@@ -1,7 +1,5 @@
 package main
 
-import "TwitchSpy/server"
+func main()  {
 
-func main() {
-	server.Run()
 }

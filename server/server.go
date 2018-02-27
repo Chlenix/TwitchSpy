@@ -1,17 +1,15 @@
-package server
+package main
 
 import (
-	"golang.org/x/crypto/acme/autocert"
 	"net/http"
-	"crypto/tls"
-	"fmt"
-	"flag"
 	"time"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"context"
+	"github.com/gorilla/mux"
+	"TwitchSpy/server/route"
 )
 
 const (
@@ -20,72 +18,13 @@ const (
 	DevPort  = ":8000"
 )
 
-var (
-	flgProduction = false
-	testJson      = `{
-"glossary": {
-	"title": "example glossary",
-	"GlossDiv": {
-		"title": "S",
-		"GlossList": {
-			"GlossEntry": {
-				"ID": "SGML",
-				"SortAs": "SGML",
-				"GlossTerm": "Standard Generalized Markup Language",
-				"Acronym": "SGML",
-				"Abbrev": "ISO 8879:1986",
-				"GlossDef": {
-					"para": "A meta-markup language, used to create markup languages such as DocBook.",
-					"GlossSeeAlso": ["GML", "XML"]
-				},
-				"GlossSee": "markup"
-			}
-		}
-	}
-}
-}`
-)
-
-func parseFlags() {
-	flag.BoolVar(&flgProduction, "production", false, "if true, we start HTTPS server")
-	flag.Parse()
-}
-
-func faviconHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("%s\n", r.RequestURI)
-	w.Header().Set("Content-Type", "image/x-icon")
-	w.Header().Set("Cache-Control", "public, max-age=7776000")
-	fmt.Fprintln(w, "data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII=\n")
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	for k, v := range r.Header {
-		fmt.Printf("%v: %v\n", k, v)
-	}
-
-	w.Header().Add("tspy-token", "349fdk340238dkfp2191ld60")
-
-	w.Write([]byte(testJson))
-}
-
-func makeServerFromMux(mux *http.ServeMux) *http.Server {
-	// set timeouts so that a slow or malicious client doesn't
-	// hold resources forever
-	return &http.Server{
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		Handler:      mux,
-	}
-}
-
 func graceful(hs *http.Server, logger *log.Logger, timeout time.Duration) {
-	stop := make(chan os.Signal, 1)
+	sigs := make(chan os.Signal, 1)
 
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
 	// block until signal
-	<-stop
+	<-sigs
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -99,49 +38,25 @@ func graceful(hs *http.Server, logger *log.Logger, timeout time.Duration) {
 	}
 }
 
-func Run() {
+func assign(router *mux.Router) {
+	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", http.FileServer(http.Dir("public"))))
+
+	router.HandleFunc("/login", route.Login).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/logout", route.Logout).Methods(http.MethodPost)
+
+	router.HandleFunc("/favicon.ico", route.Favicon).Methods(http.MethodGet)
+	router.HandleFunc("/", route.Index).Methods(http.MethodGet, http.MethodPost)
+}
+
+func main() {
 	parseFlags()
-	var m *autocert.Manager
-	var httpServ *http.Server
+	var hs *http.Server
 
-	log.Println("Server starting ...")
+	router := mux.NewRouter()
 
-	mux := http.NewServeMux()
+	assign(router)
 
-	// handlers
-	mux.HandleFunc("/favicon.ico", faviconHandler)
-	mux.HandleFunc("/", indexHandler)
+	hs = setup(router)
 
-	// configure and serve https
-	httpServ = makeServerFromMux(mux)
-
-	if flgProduction {
-		// init autocert to automatically grab/cache/renew TLS certs for given hosts
-		m = &autocert.Manager{
-			Cache:      autocert.DirCache(CertsDir),
-			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(HostName, "server."+HostName),
-		}
-
-		go func(){
-			httpServ.Addr = ":https"
-			httpServ.TLSConfig = &tls.Config{GetCertificate: m.GetCertificate}
-			log.Fatal(httpServ.ListenAndServeTLS("", ""))
-		}()
-	}
-
-	if m != nil {
-		// initial http-01 challenge and redirect http to httpS
-		go func() {
-			log.Fatal(http.ListenAndServe(":http", m.HTTPHandler(nil)))
-		}()
-	} else {
-		go func() {
-			fmt.Printf("Remember to run with -production for :443 on the server\n")
-			httpServ.Addr = DevPort
-			log.Fatal(httpServ.ListenAndServe())
-		}()
-	}
-
-	graceful(httpServ, log.New(os.Stdout, "", 0), 5 * time.Second)
+	graceful(hs, log.New(os.Stdout, "", 0), 5 * time.Second)
 }
