@@ -8,8 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 	"context"
-	"github.com/gorilla/mux"
+	"github.com/julienschmidt/httprouter"
 	"TwitchSpy/server/route"
+	"TwitchSpy/server/api"
+	"TwitchSpy/server/mw"
 )
 
 const (
@@ -38,23 +40,25 @@ func graceful(hs *http.Server, logger *log.Logger, timeout time.Duration) {
 	}
 }
 
-func assign(router *mux.Router) {
-	router.PathPrefix("/public/").Handler(http.StripPrefix("/public/", http.FileServer(http.Dir("public"))))
+func handleRoutes(router *httprouter.Router) {
+	middleware := mw.NewMiddleware
 
-	router.HandleFunc("/login", route.Login).Methods(http.MethodGet, http.MethodPost)
-	router.HandleFunc("/logout", route.Logout).Methods(http.MethodPost)
+	router.ServeFiles("/public/*filepath", http.Dir("public"))
 
-	router.HandleFunc("/favicon.ico", route.Favicon).Methods(http.MethodGet)
-	router.HandleFunc("/", route.Index).Methods(http.MethodGet, http.MethodPost)
+	router.POST("/api/login", middleware(api.Login).Authorize)
+	router.POST("/api/logout", api.Logout)
+
+	router.GET("/login", route.Login)
+	router.GET("/", route.Index)
 }
 
 func main() {
 	parseFlags()
 	var hs *http.Server
 
-	router := mux.NewRouter()
+	router := httprouter.New()
 
-	assign(router)
+	handleRoutes(router)
 
 	hs = setup(router)
 

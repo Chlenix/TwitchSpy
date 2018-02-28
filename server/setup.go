@@ -3,12 +3,12 @@ package main
 import (
 	"net/http"
 	"golang.org/x/crypto/acme/autocert"
-	"github.com/gorilla/mux"
 	"time"
 	"crypto/tls"
 	"fmt"
 	"log"
 	"flag"
+	"github.com/julienschmidt/httprouter"
 )
 
 var (
@@ -20,7 +20,7 @@ func parseFlags() {
 	flag.Parse()
 }
 
-func makeServerFromMux(router *mux.Router) *http.Server {
+func makeServerFromMux(router *httprouter.Router) *http.Server {
 	// set timeouts so that a slow or malicious client doesn't
 	// hold resources forever
 	return &http.Server{
@@ -31,7 +31,7 @@ func makeServerFromMux(router *mux.Router) *http.Server {
 	}
 }
 
-func setup(router *mux.Router) (*http.Server) {
+func setup(router *httprouter.Router) (*http.Server) {
 	var m *autocert.Manager
 	var hs *http.Server
 
