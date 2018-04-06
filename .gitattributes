@@ -1,0 +1,3 @@
+server/public/css/* linguist-vendored
+server/public/vendor/* linguist-vendored
+server/public/fonts/* linguist-vendored
