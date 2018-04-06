@@ -5,56 +5,45 @@ import (
 	"time"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
-	"context"
 	"github.com/julienschmidt/httprouter"
 	"TwitchSpy/server/route"
 	"TwitchSpy/server/api"
 	"TwitchSpy/server/mw"
+	"github.com/kelseyhightower/envconfig"
+	"TwitchSpy/config"
 )
 
 const (
-	CertsDir = "certs"
-	HostName = "yeosh.com"
-	DevPort  = ":8000"
+	CertsDir       = "certs"
+	StaticFilesDir = "public"
+	ConfigPrefix   = "server"
 )
 
-func graceful(hs *http.Server, logger *log.Logger, timeout time.Duration) {
-	sigs := make(chan os.Signal, 1)
-
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
-
-	// block until signal
-	<-sigs
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	logger.Printf("\nShutdown with timeout: %s\n", timeout)
-
-	if err := hs.Shutdown(ctx); err != nil {
-		logger.Printf("Error: %v\n", err)
-	} else {
-		logger.Println("Server stopped")
-	}
-}
+var (
+	hs *http.Server
+	conf *config.ServerConfig
+	flgProduction = false
+)
 
 func handleRoutes(router *httprouter.Router) {
 	middleware := mw.NewMiddleware
 
-	router.ServeFiles("/public/*filepath", http.Dir("public"))
+	router.ServeFiles("/public/*filepath", http.Dir(StaticFilesDir))
 
-	router.POST("/api/login", middleware(api.Login).Authorize)
+	router.POST("/api/login", middleware(api.Login, conf).Login)
 	router.POST("/api/logout", api.Logout)
 
 	router.GET("/login", route.Login)
-	router.GET("/", route.Index)
+	router.GET("/", middleware(route.Index, conf).Auth)
 }
 
 func main() {
 	parseFlags()
-	var hs *http.Server
+	conf = &config.ServerConfig{}
+
+	if err := envconfig.Process(ConfigPrefix, conf); err != nil {
+		panic(err)
+	}
 
 	router := httprouter.New()
 
@@ -62,5 +51,5 @@ func main() {
 
 	hs = setup(router)
 
-	graceful(hs, log.New(os.Stdout, "", 0), 5 * time.Second)
+	graceful(hs, log.New(os.Stdout, "", 0), 5*time.Second)
 }

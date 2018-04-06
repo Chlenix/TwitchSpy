@@ -13,13 +13,6 @@ const (
 func Login(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s\n", r.RequestURI)
 
-
-	r.ParseForm()
-
-	for k, v := range r.Form {
-		fmt.Printf("%v: %v\n", k, v)
-	}
-
 	w.Header().Set("Content-Type", DefaultContentType)
 	w.WriteHeader(http.StatusOK)
 }

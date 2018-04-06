@@ -9,10 +9,10 @@ import (
 	"log"
 	"flag"
 	"github.com/julienschmidt/httprouter"
-)
-
-var (
-	flgProduction = false
+	"os"
+	"os/signal"
+	"syscall"
+	"context"
 )
 
 func parseFlags() {
@@ -42,7 +42,7 @@ func setup(router *httprouter.Router) (*http.Server) {
 		m = &autocert.Manager{
 			Cache:      autocert.DirCache(CertsDir),
 			Prompt:     autocert.AcceptTOS,
-			HostPolicy: autocert.HostWhitelist(HostName, "server."+HostName),
+			HostPolicy: autocert.HostWhitelist(conf.HostName, "www."+conf.HostName),
 		}
 
 		go func(){
@@ -60,9 +60,29 @@ func setup(router *httprouter.Router) (*http.Server) {
 	} else {
 		go func() {
 			fmt.Printf("Remember to run with -production for :443 on the server\n")
-			hs.Addr = DevPort
+			hs.Addr = conf.Port
 			log.Fatal(hs.ListenAndServe())
 		}()
 	}
 	return hs
+}
+
+func graceful(hs *http.Server, logger *log.Logger, timeout time.Duration) {
+	sigs := make(chan os.Signal, 1)
+
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+
+	// block until signal
+	<-sigs
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	logger.Printf("\nShutdown with timeout: %s\n", timeout)
+
+	if err := hs.Shutdown(ctx); err != nil {
+		logger.Printf("Error: %v\n", err)
+	} else {
+		logger.Println("Server stopped")
+	}
 }

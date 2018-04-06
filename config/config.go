@@ -2,8 +2,14 @@ package config
 
 import "fmt"
 
-type AppConfig struct {
+type GiantbombConfig struct {
+	GBAPIKey string `envconfig:"APIKEY"`
+}
 
+type ServerConfig struct {
+	Secure   bool   `envconfig:"SECURE"`
+	HostName string `envconfig:"HOSTNAME"`
+	Port     string `envconfig:"PORT"`
 }
 
 type ClientConfig struct {

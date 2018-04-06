@@ -11,11 +11,17 @@ import (
 	"TwitchSpy/tserror"
 	"errors"
 	"TwitchSpy/api/twitch"
+	"github.com/kelseyhightower/envconfig"
+	"TwitchSpy/config"
 )
 
 const (
-	APIKey     = "6d7160493970c1b963963c7791af32352ac31d91"
-	BaseAPIUrl = "http://server.giantbomb.com/api"
+	ConfigPrefix = "GB"
+	BaseAPIUrl   = "http://server.giantbomb.com/api"
+)
+
+var (
+	conf *config.GiantbombConfig
 )
 
 type GBClient struct {
@@ -39,6 +45,12 @@ func formatFilters(filters []string) string {
 
 func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.AppError {
 
+	conf = &config.GiantbombConfig{}
+
+	if err := envconfig.Process(ConfigPrefix, conf); err != nil {
+		panic(err)
+	}
+
 	if c.Suspended {
 		return tserror.New(errors.New("GBClient suspended"), tserror.Ignore)
 	}
@@ -51,7 +63,7 @@ func (c *GBClient) GetGameInfo(game *twitch.Game, filters []string) *tserror.App
 
 	params := map[string]string{
 		"format":     "json",
-		"api_key":    APIKey,
+		"api_key":    conf.GBAPIKey,
 		"field_list": formatFilters(filters),
 	}
 
